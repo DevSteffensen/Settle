@@ -1,4 +1,4 @@
-package input.reader;
+package console;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;

@@ -1,7 +1,5 @@
-package input.reader;
+package console;
 
-import java.io.FileReader;
-import java.io.IOException;
 
 public class CLI {
     public static void main(String[] args) {

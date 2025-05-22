@@ -7,6 +7,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class DatabaseOffline implements Database{
+    private boolean ledgerChanged = true;
+    private boolean usersChanged = true;
+
     private String url = "jdbc:sqlite:db.sqlite";
 
     private void executeChange(String sql) throws SQLException {
@@ -18,31 +21,35 @@ public class DatabaseOffline implements Database{
 
 
     public void createLedger() throws SQLException{
-        String sql = "CREATE TABLE IF NOT EXISTS Ledger(User_ID INTEGER, Value INTEGER)";
+        String SQL = "CREATE TABLE IF NOT EXISTS Ledger(User_ID INTEGER, Value INTEGER)";
 
-        executeChange(sql);
+        executeChange(SQL);
+        ledgerChanged = true;
     }
 
     public void dropTables() throws SQLException{
         // temporarily hard coded
-        String sql1 = "DROP TABLE IF EXISTS Ledger";
-        String sql2 = "DROP TABLE IF EXISTS Users";
+        String SQL_1 = "DROP TABLE IF EXISTS Ledger";
+        String SQL_2 = "DROP TABLE IF EXISTS Users";
 
-        executeChange(sql1);
-        executeChange(sql2);
+        executeChange(SQL_1);
+        ledgerChanged = true;
+        executeChange(SQL_2);
+        usersChanged = true;
     }
 
     public void addDebt(int ID, int amount) throws SQLException{
-        String sql = "INSERT INTO Ledger(User_ID, Value) VALUES(" + ID + ", " + amount + ")";
+        String SQL = "INSERT INTO Ledger(User_ID, Value) VALUES(" + ID + ", " + amount + ")";
 
-        executeChange(sql);
+        executeChange(SQL);
+        ledgerChanged = true;
     }
 
     public int getDebt(int ID) throws SQLException{
-        String sql = "SELECT SUM(Value) AS total FROM Ledger WHERE User_ID =" + ID;
+        String SQL = "SELECT SUM(Value) AS total FROM Ledger WHERE User_ID =" + ID;
 
         try(Connection connection = DriverManager.getConnection(url)) {
-            PreparedStatement statement = connection.prepareStatement(sql);
+            PreparedStatement statement = connection.prepareStatement(SQL);
 
             ResultSet resultSet = statement.executeQuery();
 
@@ -58,23 +65,25 @@ public class DatabaseOffline implements Database{
         String sql = "CREATE TABLE IF NOT EXISTS Users( Name TEXT NOT NULL UNIQUE, User_ID INTEGER PRIMARY KEY AUTOINCREMENT)";
 
         executeChange(sql);
+        usersChanged = true;
     }
 
     public void addUser(String name) throws SQLException{
-        String sql = "INSERT INTO Users(Name) VALUES (?)";
+        String SQL = "INSERT INTO Users(Name) VALUES (?)";
 
         try(Connection connection = DriverManager.getConnection(url)) {
-            PreparedStatement statement = connection.prepareStatement(sql);
+            PreparedStatement statement = connection.prepareStatement(SQL);
             statement.setString(1, name);
             statement.executeUpdate();
+            usersChanged = true;
         }
     }
 
     public int lookupUser(String name) throws SQLException{
-        String sql = "SELECT User_ID FROM Users WHERE Name = ?";
+        String SQL = "SELECT User_ID FROM Users WHERE Name = ?";
 
         try(Connection connection = DriverManager.getConnection(url)) {
-            PreparedStatement statement = connection.prepareStatement(sql);
+            PreparedStatement statement = connection.prepareStatement(SQL);
 
             statement.setString(1, name);
             ResultSet resultSet = statement.executeQuery();
@@ -90,11 +99,12 @@ public class DatabaseOffline implements Database{
 
     public LinkedHashMap<Integer, Integer> getBalance() throws SQLException{
         HashMap<Integer, Integer> balances = new HashMap<>();
-        String sql = "SELECT User_ID , SUM(Value) AS balance FROM Ledger GROUP BY User_ID";
+        String SQL = "SELECT User_ID , SUM(Value) AS balance FROM Ledger GROUP BY User_ID";
 
         try (Connection conn = DriverManager.getConnection(url);
              Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+             ResultSet rs = stmt.executeQuery(SQL)) {
+            ledgerChanged = false;
 
             while (rs.next()) {
                 int userId = rs.getInt("User_ID");
@@ -111,6 +121,34 @@ public class DatabaseOffline implements Database{
                             (e1, e2) -> e2, LinkedHashMap::new));
 
             // FROM LOWEST TO HIGHEST
+        }
+    }
+
+    public boolean debtsChanged(){
+        return ledgerChanged;
+    }
+
+    public boolean usersChanged(){
+        return usersChanged;
+    }
+
+    public HashMap<Integer, String> getTranslationOfID() throws SQLException{
+        String SQL = "SELECT User_ID, Name FROM Users";
+        HashMap<Integer, String> translation = new HashMap<>();
+
+        try(Connection conn = DriverManager.getConnection(url)){
+            PreparedStatement statement = conn.prepareStatement(SQL);
+
+            ResultSet resultSet = statement.executeQuery();
+            usersChanged = false;
+
+            while (resultSet.next()) {
+                int userId = resultSet.getInt("User_ID");
+                String name = resultSet.getString("Name");
+                translation.put(userId, name);
+            }
+
+            return translation;
         }
     }
 }

@@ -11,5 +11,8 @@ public interface Database {
     void createUsersTable() throws SQLException;
     void addUser(String name) throws SQLException;
     int lookupUser(String name) throws SQLException;
-    public HashMap<Integer, Integer> getBalance() throws SQLException;
+    HashMap<Integer, Integer> getBalance() throws SQLException;
+    HashMap<Integer, String> getTranslationOfID() throws SQLException;
+    boolean usersChanged();
+    boolean debtsChanged();
 }

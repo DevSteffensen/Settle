@@ -1,23 +1,27 @@
-package database;
+package com.funkas.Settle.balancer;
 
-import java.sql.SQLException;
 import java.util.*;
 
-public class Balance {
-    private Database db;
+class Balance {
+    private Database database;
     // User_ID, balance value
     private HashMap<Integer, Integer> balances;
     // User_ID, (User_ID, value)
     private HashMap<Integer, HashMap<Integer, Integer>> users;
-    private HashMap<Integer, String> translations;
 
-    Balance(Database db) {
-        this.db = db;
+    public Balance(Database db) {
+        this.database = db;
     }
+
+    /**
+     * Calculates the debts and credits for all users based on their current balances.
+     * It separates users into debtors and creditors and populates a map of who owes whom.
+     * Uses two-phase settling: exact matches (`settleMatches`) and partial balances (`settle`).
+     */
 
     public void calculateTransactions(){
         try{
-            balances = db.getBalance();
+            balances = database.getBalance();
 
             users = new HashMap<Integer, HashMap<Integer, Integer>>();
 
@@ -49,8 +53,17 @@ public class Balance {
         } catch (Exception e) {
             System.out.println("Couldn't connect to database, try again later.");
         }
-
     }
+
+    /**
+     * Resolves debts where a debtor's owed amount exactly matches a creditor's credit.
+     * Updates the internal `users` map to reflect these one-to-one matches.
+     * Needed, otherwise it won't find the least amount of transactions
+     *
+     * @param debtors a LinkedHashMap of debtors with their owed values
+     * @param creditors a LinkedHashMap of creditors with their credit values (negative balances)
+     */
+
     private void settleMatches(LinkedHashMap<Integer, Integer> debtors, LinkedHashMap<Integer, Integer> creditors){
         Map.Entry<Integer, Integer> debtor = null;
         Map.Entry<Integer, Integer> creditor = null;
@@ -105,6 +118,14 @@ public class Balance {
             }
         }
     }
+
+    /**
+     * Resolves remaining debts where the amounts do not exactly match.
+     * Iteratively matches parts of debts and credits until all are settled or iterators are exhausted.
+     *
+     * @param debtors a LinkedHashMap of remaining debtors and their values
+     * @param creditors a LinkedHashMap of remaining creditors and their credit values (negative balances)
+     */
 
     private void settle(LinkedHashMap<Integer, Integer> debtors, LinkedHashMap<Integer, Integer> creditors){
         Map.Entry<Integer, Integer> debtor = null;
@@ -174,41 +195,24 @@ public class Balance {
         }
     }
 
-    public void printBalance(int User_ID){
+    /**
+     * Retrieves the map of users and the amount they owe or are owed by the given user.
+     * Triggers a recalculation if the debts have changed since last fetch.
+     *
+     * @param User_ID the ID of the user whose balance breakdown is requested
+     * @return a HashMap where keys are other user IDs and values are amounts owed (+) or due (-)
+     */
 
-        if (db.usersChanged()){
-            try{
-                translations = db.getTranslationOfID();
-            }
-            catch (SQLException e){
-                System.out.println("Couldn't connect to database, try again later.");
-            }
-        }
-
-        if (db.debtsChanged()){
+    public HashMap<Integer, Integer> getBalance(int User_ID){
+        if (database.debtsChanged()){
             calculateTransactions();
         }
 
         if (!users.containsKey(User_ID)){
-            System.out.println("User has 0 debt.");
-            System.out.println("User is owed 0 debt");
+            return new HashMap<>();
         }
-
         else{
-            for (Map.Entry<Integer, Integer> entry : users.get(User_ID).entrySet()){
-                String name = entry.getKey().toString();
-
-                if (translations.containsKey(entry.getKey())){
-                    name = translations.get(entry.getKey());
-                }
-
-                if (entry.getValue() > 0){
-                    System.out.println("User owes " + entry.getValue() + "$ to " + name + ".");
-                }
-                else{
-                    System.out.println("User is owed " + -(entry.getValue()) + "$ from " + name + "." );
-                }
-            }
+            return users.get(User_ID);
         }
     }
 }

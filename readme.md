@@ -7,8 +7,8 @@ Installation
 ---
 
 Clone the repo: git clone ``https://github.com/DevSteffensen/Settle.git``\
-Go to the project directory: cd Settle
-Build app: ./mvn clean package
+Go to the project directory: ``cd Settle``\
+Build app: ``mvn clean package``
 
 Running the app:
 ---
